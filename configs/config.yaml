@@ -1,0 +1,17 @@
+# Hyperparameters matching the original notebook (fixed by the competition unless noted).
+seed: 123
+learning_rate: 0.01
+num_epochs: 6
+num_classes: 2
+batch_size: 128
+weight_decay: 0.001
+
+# Chosen for the co-teaching sample-selection strategy (src/select_indices.py),
+# found by sweeping candidate rates so the selected batch is ~50/50 class-balanced.
+sampling_rates:
+  class_0: 0.5
+  class_1: 0.93
+
+data:
+  train_url_id: "1qmNNmDv-wUcAv5mvO6vYJV3mQ2SNIGnI"  # Google Drive file id
+  val_url_id: "1YUJYD12NmKRSzFJGMrX-a61d6mnTaWbG"

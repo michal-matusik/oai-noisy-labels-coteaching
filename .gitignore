@@ -1,0 +1,19 @@
+# Downloaded competition data
+train/
+val/
+work/
+*.zip
+data/
+dataset_labels.csv
+
+# Python
+__pycache__/
+*.pyc
+.venv*/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store

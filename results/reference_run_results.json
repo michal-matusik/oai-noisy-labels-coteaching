@@ -1,0 +1,17 @@
+{
+  "note": "These numbers are from the pre-existing solved reference notebook (notebooks/reference_opracowanie.ipynb), which was already executed with the same co-teaching your_select_indices implementation ported into notebooks/solved_task.ipynb and src/select_indices.py. This session attempted a fresh full local CPU re-run (work/run_train.py, baseline + co-teaching, 6 epochs each on the real downloaded 10k/1k train/val sets) but it did not finish within the available time budget on CPU-only hardware and was stopped before producing results; no fabricated numbers are reported for that run.",
+  "baseline_default_select_indices": {
+    "model1_bac": 0.5,
+    "model2_bac": 0.5,
+    "mean_bac": 0.5,
+    "score": 0
+  },
+  "co_teaching_your_select_indices": {
+    "model1_bac": 0.8687,
+    "model2_bac": 0.8938,
+    "mean_bac": 0.8812,
+    "score": 100,
+    "sampling_rates": [0.5, 0.93]
+  },
+  "source": "notebooks/reference_opracowanie.ipynb (executed cell outputs)"
+}
