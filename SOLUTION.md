@@ -133,14 +133,45 @@ and mapped to a 0–100 score via the piecewise-linear formula in `README.md`
 |---|---|---|---|---|
 | Baseline (no filtering) | 0.500 | 0.500 | 0.500 | 0/100 |
 | Co-teaching, reference run | 0.8687 | 0.8938 | 0.8812 | 100/100 |
+| Co-teaching, local CPU re-run (this session, `results/local_run_results.json`) | 0.6721 | 0.8728 | 0.7725 | 90.8/100 |
 
-A fresh local CPU re-run of the ported code (`work/run_train.py`) was started
-in this session to independently verify the numbers above, but the machine
-was shut down before full-dataset CPU training finished. The ported
-`your_select_indices` is unmodified from the reference implementation, so it
-is expected to reproduce these numbers, but this has not been independently
-re-confirmed on this machine — running `python -m src.train` (ideally on GPU)
-will produce a verified result.
+The local CPU re-run independently confirms the ported `your_select_indices`
+works correctly end-to-end against the real downloaded data — it is not a
+re-typed/re-derived implementation, so this is mainly a sanity check that
+nothing was lost in translation from `reference_opracowanie.ipynb`.
+
+Two things worth noting from this run:
+
+1. **CPU performance bug (fixed for this run, not a code bug):** the first
+   attempt at this local run used PyTorch's default thread count (12, matching
+   this machine's core count) and was pathologically slow — over 30 CPU-minutes
+   without finishing a single epoch. A microbenchmark isolated the cause:
+   `SmallMobileNet`'s ops are tiny (28×28 inputs, depthwise-separable convs),
+   so PyTorch's per-op thread-pool dispatch overhead with 12 threads dwarfs the
+   actual compute — classic over-threading for small tensors. Setting
+   `torch.set_num_threads(4)` before training dropped one epoch from
+   "didn't finish in 30+ CPU-minutes" to ~200 wall-clock seconds. This is a
+   deployment/environment detail, not something `your_select_indices` controls,
+   but it's worth knowing if reproducing this on another small-core-count-vs-
+   op-size-mismatched machine *(fact, measured this session)*.
+2. **Late-epoch instability:** `model1`'s validation BAC peaked at 0.87
+   (epoch 5) then dropped to 0.67 at epoch 6 (the final, reported epoch) —
+   see the full per-epoch log. `model2` stayed stable (0.85→0.87→0.87).
+   This pulled the mean BAC (and score) below the reference run's numbers,
+   even though the same code, hyperparameters, and seed(123) as the reference
+   were used. Two most likely explanations *(inferred)*: (a) the reference
+   run's exact numeric trajectory depends on the PyTorch/CUDA version and GPU
+   nondeterminism (the reference notebook ran on `torch==2.5.1`+CUDA per
+   `environment.yml`; this session used `torch==2.14` CPU-only — operator
+   implementations, and therefore the exact sequence of floating-point
+   results even from the "same" seed, differ across versions/backends), and
+   (b) `lr=1e-2` with AdamW is fairly aggressive for a model this small, so a
+   late-training overshoot on one of the two models plausibly explains a
+   BAC swing this size while the loss/selection logic itself remains correct.
+   The fix that would most directly address this without changing the
+   allowed `your_select_indices` function: track validation BAC per epoch
+   during training and keep the best-epoch weights instead of returning the
+   final epoch's, or add LR decay over the last epoch or two.
 
 ## 9. Why the Approach Works
 

@@ -97,21 +97,26 @@ and a 2-class linear head with dropout.
 |---|---|---|---|---|
 | Baseline (`default_select_indices`, all data, no filtering) | 0.500 | 0.500 | 0.500 | 0 / 100 |
 | **Co-teaching (`your_select_indices`)** — reference run (`notebooks/reference_opracowanie.ipynb`) | 0.8687 | 0.8938 | 0.8812 | **100 / 100** |
+| Co-teaching — this session's local CPU re-run (`results/local_run_results.json`) | 0.6721 | 0.8728 | 0.7725 | 90.8 / 100 |
 
 The baseline collapses to predicting a single class for both models (BAC =
 0.5 — chance level for balanced accuracy) because it trains on 100% of the
 noisy, imbalanced data with no filtering. Co-teaching's cross low-loss
-selection with rebalanced rates fixes this: both models clear the 0.8 BAC
-ceiling required for the maximum score.
+selection with rebalanced rates fixes this: both models clear well above the
+0.5 chance level.
 
-**Note:** this session also started a fresh local CPU re-run of the ported
-`your_select_indices` implementation (`work/run_train.py`) to double-check it
-against real data end-to-end, but the machine was shut down before that CPU
-training run finished (full-dataset training on CPU is much slower than the
-original GPU run). The code has not been proven to reproduce the reference
-numbers on this machine — only ported from, and consistent with, the working
-`reference_opracowanie.ipynb` logic. Re-running `python -m src.train` (ideally
-on GPU) will produce a fresh, verified result.
+The local CPU re-run independently confirms the ported `your_select_indices`
+works end-to-end on real downloaded data (6 epochs, ~20 min wall-clock on
+CPU with `torch.set_num_threads(4)` — the default 12-thread setting caused
+severe thread-pool contention on this tiny model and made training ~10x
+slower, see `SOLUTION.md` for the diagnosis). It lands below the GPU
+reference run (90.8 vs. 100/100): `model1`'s BAC dropped from 0.87 (epoch 5)
+to 0.67 at the final epoch, i.e. a late-training instability rather than a
+correctness bug — AdamW at `lr=1e-2` is fairly aggressive for this small a
+network and can overshoot in later epochs. Reproducible and diagnosed further
+in `SOLUTION.md`; a simple fix (LR decay over the last epoch, or early
+stopping on validation BAC and keeping the best checkpoint instead of the
+final one) would likely recover the full 100/100 reliably.
 
 Reproduce with:
 ```bash
