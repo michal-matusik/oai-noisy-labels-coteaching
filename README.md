@@ -170,6 +170,15 @@ pip install -r requirements.txt
 python -m src.train
 ```
 
+### Verifying on GPU (Colab)
+
+The local CPU numbers above (90.8/100) diverge from the reference GPU run's
+100/100 for hardware/floating-point reasons, not a code difference (see
+"Results" and `SOLUTION.md` §3). Open
+**[`notebooks/colab_train.ipynb`](notebooks/colab_train.ipynb) in Colab**
+(Runtime → Change runtime type → GPU) to re-run this exact, unmodified code
+on GPU and check whether it lands near 100/100 there.
+
 ## Technical Highlights
 
 - Class-specific sampling rates were chosen empirically by sweeping candidate
