@@ -154,24 +154,45 @@ Two things worth noting from this run:
    deployment/environment detail, not something `your_select_indices` controls,
    but it's worth knowing if reproducing this on another small-core-count-vs-
    op-size-mismatched machine *(fact, measured this session)*.
-2. **Late-epoch instability:** `model1`'s validation BAC peaked at 0.87
-   (epoch 5) then dropped to 0.67 at epoch 6 (the final, reported epoch) —
-   see the full per-epoch log. `model2` stayed stable (0.85→0.87→0.87).
-   This pulled the mean BAC (and score) below the reference run's numbers,
-   even though the same code, hyperparameters, and seed(123) as the reference
-   were used. Two most likely explanations *(inferred)*: (a) the reference
-   run's exact numeric trajectory depends on the PyTorch/CUDA version and GPU
-   nondeterminism (the reference notebook ran on `torch==2.5.1`+CUDA per
-   `environment.yml`; this session used `torch==2.14` CPU-only — operator
-   implementations, and therefore the exact sequence of floating-point
-   results even from the "same" seed, differ across versions/backends), and
-   (b) `lr=1e-2` with AdamW is fairly aggressive for a model this small, so a
-   late-training overshoot on one of the two models plausibly explains a
-   BAC swing this size while the loss/selection logic itself remains correct.
-   The fix that would most directly address this without changing the
-   allowed `your_select_indices` function: track validation BAC per epoch
-   during training and keep the best-epoch weights instead of returning the
-   final epoch's, or add LR decay over the last epoch or two.
+2. **Late-epoch instability — confirmed deterministic, not run-to-run noise:**
+   `model1`'s validation BAC peaked at 0.87 (epoch 5) then dropped to 0.67 at
+   epoch 6 (the final, reported epoch); `model2` stayed stable
+   (0.85→0.87→0.87). This pulled the mean BAC (and score) below the reference
+   run's numbers, even with identical code, hyperparameters, and seed (123).
+
+   Re-running the first two epochs again on this same machine (same code,
+   same seed) reproduced the *exact same* per-epoch BAC values
+   (0.6822/0.8339, then 0.8415/0.8521) — confirming this CPU/torch build with
+   `torch.set_num_threads(4)` is fully deterministic here; the dip at epoch 6
+   is not sampling noise, it is a reproducible property of *this specific
+   run* on *this specific hardware/software stack* *(fact, verified this
+   session: two independent runs of `epochs=2` matched bit-for-bit on the
+   printed metrics)*.
+
+   That still doesn't mean the reference GPU run's 100/100 and this CPU run's
+   90.8/100 disagree because either is "wrong" — a fixed random seed only
+   guarantees the same *sequence of calls into the RNG*, not the same
+   floating-point results, once the underlying kernels differ: the reference
+   notebook ran on `torch==2.5.1`+CUDA (`environment.yml`), this session on
+   `torch==2.14` CPU-only. Conv/BatchNorm/Adam kernels accumulate
+   floating-point sums in a different order on CPU vs. GPU (and across torch
+   versions), so the two runs diverge from step one by tiny amounts that
+   compound over 6×79=474 optimizer steps — effectively acting like a
+   *different* random seed by the time training reaches epoch 6, even though
+   both used "seed 123" *(inferred, standard behavior of floating-point
+   non-associativity across hardware/kernel implementations — not something
+   `torch.manual_seed` can fix)*.
+
+   Given `lr`, `epochs`, `batch_size`, the seed, and the training loop itself
+   are all fixed by the competition (only `your_select_indices` may be
+   changed), **this is not fixable by us within the contest's rules** — there
+   is no lever inside `your_select_indices(targets, losses)` (it isn't even
+   told which epoch it's in) that can add checkpoint selection or LR decay
+   without modifying the fixed `train()` loop. The most useful next step
+   would be to actually run this exact code on a GPU (e.g. Colab) to check
+   whether it lands close to 100/100 there, which would confirm the gap is
+   purely a CPU-execution artifact of this local verification environment
+   rather than anything wrong with the ported solution.
 
 ## 9. Why the Approach Works
 

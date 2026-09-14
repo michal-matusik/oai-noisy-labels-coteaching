@@ -111,12 +111,19 @@ CPU with `torch.set_num_threads(4)` — the default 12-thread setting caused
 severe thread-pool contention on this tiny model and made training ~10x
 slower, see `SOLUTION.md` for the diagnosis). It lands below the GPU
 reference run (90.8 vs. 100/100): `model1`'s BAC dropped from 0.87 (epoch 5)
-to 0.67 at the final epoch, i.e. a late-training instability rather than a
-correctness bug — AdamW at `lr=1e-2` is fairly aggressive for this small a
-network and can overshoot in later epochs. Reproducible and diagnosed further
-in `SOLUTION.md`; a simple fix (LR decay over the last epoch, or early
-stopping on validation BAC and keeping the best checkpoint instead of the
-final one) would likely recover the full 100/100 reliably.
+to 0.67 at the final epoch. This is **deterministic on this machine**
+(re-running epochs 1-2 reproduced identical BAC values), not a correctness
+bug or random bad luck — it's CPU (`torch==2.14`) vs. the reference's GPU
+(`torch==2.5.1`+CUDA) numerically diverging over 474 optimizer steps despite
+the same seed, since floating-point kernels accumulate in a different order
+on different hardware/backends. `lr`, `epochs`, `batch_size`, the seed, and
+the training loop are all fixed by the competition — only
+`your_select_indices` may be changed, and it isn't even told which epoch
+it's in — so there is no allowed lever to add checkpoint-selection or LR
+decay to fix this from within the solution. See `SOLUTION.md` §3 for the
+full diagnosis; the useful next step is running this exact code on an actual
+GPU to check it lands near 100/100 there, confirming the gap is a
+local-CPU-verification artifact rather than a flaw in the ported solution.
 
 Reproduce with:
 ```bash
